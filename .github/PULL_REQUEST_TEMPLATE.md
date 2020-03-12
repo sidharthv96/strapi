@@ -1,17 +1,11 @@
-<!-- ⚠️ Your PR title will appear in the changelogs please make it short detailed and understandable for all. -->
+<!--
+Hello 👋 Thank you for submitting a pull request.
 
-<!-- Uncomment the correct contribution type. !-->
+To help us merge your PR, make sure to follow the instructions below:
+- Create or update the documentation.
+- Create or update the tests.
+- Refer to the issue you are closing in the PR description - fix #issue
+- Specify if the PR is in WIP (work in progress) state or ready to be merged
+-->
 
-My PR is a:
-<!-- 💥 Breaking change -->
-<!-- 🐛 Bug fix -->
-<!-- 💅 Enhancement -->
-<!-- 🚀 New feature -->
-
-Main update on the:
-<!-- Admin -->
-<!-- Documentation -->
-<!-- Framework -->
-<!-- Plugin -->
-
-<!-- Write a short description of what your PR does and link the concerned issues of your update. -->
+#### Description of what you did:

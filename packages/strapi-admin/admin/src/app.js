@@ -1,74 +1,199 @@
-/**
- * app.js
- *
- * This is the entry file for the application when running the build
- * code.
- */
+// /**
+//  *
+//  * app.js
+//  *
+//  * Entry point of the application
+//  */
 
 /* eslint-disable */
-import 'babel-polyfill';
-import { findIndex } from 'lodash';
+
+import '@babel/polyfill';
 import 'sanitize.css/sanitize.css';
-import 'whatwg-fetch';
-import {
-  getAppPluginsSucceeded,
-  unsetHasUserPlugin,
-} from 'containers/App/actions';
-import { basename, store } from './createStore';
-import './intlPolyfill';
-import './public-path';
-import './strapi';
 
-const dispatch = store.dispatch;
+// Third party css library needed
+import 'react-datetime/css/react-datetime.css';
+import 'bootstrap/dist/css/bootstrap.css';
+import 'font-awesome/css/font-awesome.min.css';
+import '@fortawesome/fontawesome-free/css/all.css';
+import '@fortawesome/fontawesome-free/js/all.min.js';
 
-// Don't inject plugins in development mode.
-if (window.location.port !== '4000') {
-  fetch(`${strapi.remoteURL}/config/plugins.json`)
-    .then(response => {
-      return response.json();
-    })
-    .then(plugins => {
-      dispatch(getAppPluginsSucceeded(plugins));
+import React from 'react';
+import ReactDOM from 'react-dom';
+import { Provider } from 'react-redux';
+import { BrowserRouter } from 'react-router-dom';
 
-      if (findIndex(plugins, ['id', 'users-permissions']) === -1) {
-        dispatch(unsetHasUserPlugin());
-      }
+import { merge } from 'lodash';
+import { Fonts } from '@buffetjs/styles';
+import { freezeApp, pluginLoaded, unfreezeApp, updatePlugin } from './containers/App/actions';
+import { showNotification } from './containers/NotificationProvider/actions';
 
-      const $body = document.getElementsByTagName('body')[0];
+import basename from './utils/basename';
+import injectReducer from './utils/injectReducer';
+import injectSaga from './utils/injectSaga';
 
-      (plugins || []).forEach(plugin => {
-        const script = document.createElement('script');
-        script.type = 'text/javascript';
-        script.onerror = function (oError) {
-          const source = new URL(oError.target.src);
-          const url = new URL(`${strapi.remoteURL}`);
+// Import root component
+import App from './containers/App';
+// Import Language provider
+import LanguageProvider from './containers/LanguageProvider';
 
-          if (!source || !url) {
-            throw new Error(`Impossible to load: ${oError.target.src}`);
-          }
+import configureStore from './configureStore';
+import { SETTINGS_BASE_URL } from './config';
 
-          // Remove tag.
-          $body.removeChild(script);
+// Import i18n messages
+import { translationMessages, languages } from './i18n';
 
-          // New attempt with new src.
-          const newScript = document.createElement('script');
-          newScript.type = 'text/javascript';
-          newScript.src = `${url.origin}${source.pathname}`;
-          $body.appendChild(newScript);
-        };
+// Create redux store with history
+import history from './utils/history';
 
-        script.src = plugin.source[process.env.NODE_ENV].indexOf('://') === -1 ?
-          `${basename}${plugin.source[process.env.NODE_ENV]}`.replace('//', '/'): // relative
-          plugin.source[process.env.NODE_ENV]; // absolute
+import plugins from './plugins';
 
-        $body.appendChild(script);
-      });
-    })
-    .catch(err => {
-      console.log(err); // eslint-disable-line no-console
-    });
+const initialState = {};
+const store = configureStore(initialState, history);
+const { dispatch } = store;
+const MOUNT_NODE = document.getElementById('app') || document.createElement('div');
+
+Object.keys(plugins).forEach(current => {
+  const registerPlugin = plugin => {
+    return plugin;
+  };
+  const currentPluginFn = plugins[current];
+  const plugin = currentPluginFn({
+    registerPlugin,
+    settingsBaseURL: SETTINGS_BASE_URL || '/settings',
+  });
+
+  const pluginTradsPrefixed = languages.reduce((acc, lang) => {
+    const currentLocale = plugin.trads[lang];
+
+    if (currentLocale) {
+      const localeprefixedWithPluginId = Object.keys(currentLocale).reduce((acc2, current) => {
+        acc2[`${plugin.id}.${current}`] = currentLocale[current];
+
+        return acc2;
+      }, {});
+
+      acc[lang] = localeprefixedWithPluginId;
+    }
+
+    return acc;
+  }, {});
+
+  try {
+    merge(translationMessages, pluginTradsPrefixed);
+    dispatch(pluginLoaded(plugin));
+  } catch (err) {
+    console.log({ err });
+  }
+});
+
+// TODO
+const remoteURL = (() => {
+  // Relative URL (ex: /dashboard)
+  if (REMOTE_URL[0] === '/') {
+    return (window.location.origin + REMOTE_URL).replace(/\/$/, '');
+  }
+
+  return REMOTE_URL.replace(/\/$/, '');
+})();
+
+const displayNotification = (message, status) => {
+  dispatch(showNotification(message, status));
+};
+const lockApp = data => {
+  dispatch(freezeApp(data));
+};
+const unlockApp = () => {
+  dispatch(unfreezeApp());
+};
+
+window.strapi = Object.assign(window.strapi || {}, {
+  node: MODE || 'host',
+  env: NODE_ENV,
+  remoteURL,
+  backendURL: BACKEND_URL === '/' ? window.location.origin : BACKEND_URL,
+  notification: {
+    success: message => {
+      displayNotification(message, 'success');
+    },
+    warning: message => {
+      displayNotification(message, 'warning');
+    },
+    error: message => {
+      displayNotification(message, 'error');
+    },
+    info: message => {
+      displayNotification(message, 'info');
+    },
+  },
+  refresh: pluginId => ({
+    translationMessages: translationMessagesUpdated => {
+      render(merge({}, translationMessages, translationMessagesUpdated));
+    },
+    leftMenuSections: leftMenuSectionsUpdated => {
+      store.dispatch(updatePlugin(pluginId, 'leftMenuSections', leftMenuSectionsUpdated));
+    },
+  }),
+  router: history,
+  languages,
+  currentLanguage:
+    window.localStorage.getItem('strapi-admin-language') ||
+    window.navigator.language ||
+    window.navigator.userLanguage ||
+    'en',
+  lockApp,
+  unlockApp,
+  injectReducer,
+  injectSaga,
+  store,
+});
+
+const render = messages => {
+  ReactDOM.render(
+    <Provider store={store}>
+      <Fonts />
+      <LanguageProvider messages={messages}>
+        <BrowserRouter basename={basename}>
+          <App store={store} />
+        </BrowserRouter>
+      </LanguageProvider>
+    </Provider>,
+    MOUNT_NODE
+  );
+};
+
+if (module.hot) {
+  module.hot.accept(['./i18n', './containers/App'], () => {
+    ReactDOM.unmountComponentAtNode(MOUNT_NODE);
+
+    render(translationMessages);
+  });
 }
 
-export {
-  dispatch,
-};
+if (NODE_ENV !== 'test') {
+  // Chunked polyfill for browsers without Intl support
+  if (!window.Intl) {
+    new Promise(resolve => {
+      resolve(import('intl'));
+    })
+      .then(() =>
+        Promise.all([
+          import('intl/locale-data/jsonp/en.js'),
+          import('intl/locale-data/jsonp/de.js'),
+        ])
+      )
+      .then(() => render(translationMessages))
+      .catch(err => {
+        throw err;
+      });
+  } else {
+    render(translationMessages);
+  }
+}
+
+// @Pierre Burgy exporting dispatch for the notifications...
+export { dispatch };
+
+// TODO remove this for the new Cypress tests
+if (window.Cypress) {
+  window.__store__ = Object.assign(window.__store__ || {}, { store });
+}

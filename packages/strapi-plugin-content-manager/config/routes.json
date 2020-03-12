@@ -2,8 +2,64 @@
   "routes": [
     {
       "method": "GET",
-      "path": "/models",
-      "handler": "ContentManager.models",
+      "path": "/content-types",
+      "handler": "ContentTypes.listContentTypes",
+      "config": {
+        "policies": []
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/content-types/:uid",
+      "handler": "ContentTypes.findContentType",
+      "config": {
+        "policies": []
+      }
+    },
+    {
+      "method": "PUT",
+      "path": "/content-types/:uid",
+      "handler": "ContentTypes.updateContentType",
+      "config": {
+        "policies": []
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/components",
+      "handler": "Components.listComponents",
+      "config": {
+        "policies": []
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/components/:uid",
+      "handler": "Components.findComponent",
+      "config": {
+        "policies": []
+      }
+    },
+    {
+      "method": "PUT",
+      "path": "/components/:uid",
+      "handler": "Components.updateComponent",
+      "config": {
+        "policies": []
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/explorer/uid/generate",
+      "handler": "ContentManager.generateUID",
+      "config": {
+        "policies": []
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/explorer/uid/check-availability",
+      "handler": "ContentManager.checkUIDAvailability",
       "config": {
         "policies": []
       }
@@ -25,21 +81,14 @@
       }
     },
     {
-      "method": "PUT",
-      "path": "/models",
-      "handler": "ContentManager.updateSettings",
-      "config": {
-        "policies": ["routing"]
-      }
-    },
-    {
       "method": "GET",
       "path": "/explorer/:model/:id",
       "handler": "ContentManager.findOne",
       "config": {
         "policies": ["routing"]
       }
-    },{
+    },
+    {
       "method": "POST",
       "path": "/explorer/:model",
       "handler": "ContentManager.create",
@@ -58,7 +107,7 @@
     {
       "method": "DELETE",
       "path": "/explorer/deleteAll/:model",
-      "handler": "ContentManager.deleteAll",
+      "handler": "ContentManager.deleteMany",
       "config": {
         "policies": ["routing"]
       }

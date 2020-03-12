@@ -1,4 +1,11 @@
-packages/strapi-generate-new/files/public/**
-packages/strapi-generate-admin/files/admin/public/**
-website/
 **/node_modules/**
+**/build/**
+**/dist/**
+testApp/**
+examples/**
+packages/strapi-generate-plugin/files/admin/src/**
+packages/strapi-helper-plugin/**
+packages/strapi-plugin-users-permissions/admin/**
+.eslintrc.js
+.eslintrc.front.js
+.eslintrc.back.js

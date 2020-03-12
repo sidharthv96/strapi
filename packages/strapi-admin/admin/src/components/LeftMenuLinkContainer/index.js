@@ -1,37 +1,32 @@
-/**
- *
- * LeftMenuLinkContainer
- *
- */
-
 import React from 'react';
+import { useLocation } from 'react-router-dom';
 import PropTypes from 'prop-types';
-import { FormattedMessage } from 'react-intl';
-import { findIndex, get, snakeCase, isEmpty, map, sortBy } from 'lodash';
+import { get, snakeCase, isEmpty } from 'lodash';
 
-import LeftMenuLink from 'components/LeftMenuLink';
-
-import styles from './styles.scss';
+import { SETTINGS_BASE_URL } from '../../config';
+import Wrapper from './Wrapper';
 import messages from './messages.json';
 
-function LeftMenuLinkContainer({ layout, plugins }) {
-  const pluginsObject = plugins.toJS();
-  
-  // Generate the list of sections
-  const pluginsSections = Object.keys(pluginsObject).reduce((acc, current) => {
-    pluginsObject[current].leftMenuSections.forEach((section = {}) => {
+import LeftMenuLinkSection from '../LeftMenuLinkSection';
+
+const LeftMenuLinkContainer = ({ plugins }) => {
+  const location = useLocation();
+
+  // Generate the list of content types sections
+  const contentTypesSections = Object.keys(plugins).reduce((acc, current) => {
+    plugins[current].leftMenuSections.forEach((section = {}) => {
       if (!isEmpty(section.links)) {
         acc[snakeCase(section.name)] = {
           name: section.name,
+          searchable: true,
           links: get(acc[snakeCase(section.name)], 'links', []).concat(
-            section.links.map(link => {
-              link.source = current;
-              link.plugin = !isEmpty(pluginsObject[link.plugin])
-                ? link.plugin
-                : pluginsObject[current].id;
+            section.links
+              .filter(link => link.isDisplayed !== false)
+              .map(link => {
+                link.plugin = !isEmpty(plugins[link.plugin]) ? link.plugin : plugins[current].id;
 
-              return link;
-            }),
+                return link;
+              })
           ),
         };
       }
@@ -39,98 +34,70 @@ function LeftMenuLinkContainer({ layout, plugins }) {
 
     return acc;
   }, {});
-  
-  const linkSections = Object.keys(pluginsSections).map((current, j) => {
-    const contentTypesToShow = get(layout, 'layout.contentTypesToShow');
-    const contentTypes = contentTypesToShow
-      ? pluginsSections[current].links.filter(
-        obj => findIndex(contentTypesToShow, ['destination', obj.destination]) !== -1,
-      )
-      : pluginsSections[current].links;
 
-    return (
-      <div key={j}>
-        <p className={styles.title}>{pluginsSections[current].name}</p>
-        <ul className={styles.list}>
-          {sortBy(contentTypes, 'label').map((link, i) => (
-            <LeftMenuLink
-              key={`${i}-${link.label}`}
-              icon={link.icon || 'caret-right'}
-              label={link.label}
-              destination={`/plugins/${link.plugin}/${link.destination}`}
-              source={link.source}
-            />
-          ))}
-        </ul>
-      </div>
-    );
-  });
+  // Generate the list of plugin links (plugins without a mainComponent should not appear in the left menu)
+  const pluginsLinks = Object.values(plugins)
+    .filter(
+      plugin => plugin.id !== 'email' && plugin.id !== 'content-manager' && !!plugin.mainComponent
+    )
+    .map(plugin => {
+      const pluginSuffixUrl = plugin.suffixUrl ? plugin.suffixUrl(plugins) : '';
 
-  // Check if the plugins list is empty or not and display plugins by name
-  const pluginsLinks = !isEmpty(pluginsObject) ? (
-    map(sortBy(pluginsObject, 'name'), plugin => {
-      if (plugin.id !== 'email' && plugin.id !== 'settings-manager') {
-        const basePath = `/plugins/${get(plugin, 'id')}`;
-        // NOTE: this should be dynamic
-        const destination = plugin.id === 'content-manager' ? `${basePath}/ctm-configurations` : basePath;
+      return {
+        icon: get(plugin, 'icon') || 'plug',
+        label: get(plugin, 'name'),
+        destination: `/plugins/${get(plugin, 'id')}${pluginSuffixUrl}`,
+      };
+    });
 
-        return (
-          <LeftMenuLink
-            key={get(plugin, 'id')}
-            icon={get(plugin, 'icon') || 'plug'}
-            label={get(plugin, 'name')}
-            destination={destination}
-          />
-        );
-      }
-    })
-  ) : (
-    <li className={styles.noPluginsInstalled}>
-      <FormattedMessage {...messages.noPluginsInstalled} />.
-    </li>
-  );
-
-  const hasSettingsManager = get(pluginsObject, 'settings-manager', null);
+  const menu = {
+    ...contentTypesSections,
+    plugins: {
+      searchable: false,
+      name: 'plugins',
+      emptyLinksListMessage: messages.noPluginsInstalled.id,
+      links: pluginsLinks,
+    },
+    general: {
+      searchable: false,
+      name: 'general',
+      links: [
+        {
+          icon: 'list',
+          label: messages.listPlugins.id,
+          destination: '/list-plugins',
+        },
+        {
+          icon: 'shopping-basket',
+          label: messages.installNewPlugin.id,
+          destination: '/marketplace',
+        },
+        {
+          icon: 'cog',
+          label: messages.settings.id,
+          destination: SETTINGS_BASE_URL,
+        },
+      ],
+    },
+  };
 
   return (
-    <div className={styles.leftMenuLinkContainer}>
-      {linkSections}
-      <div>
-        <p className={styles.title}>
-          <FormattedMessage {...messages.plugins} />
-        </p>
-        <ul className={styles.list}>{pluginsLinks}</ul>
-      </div>
-      <div>
-        <p className={styles.title}>
-          <FormattedMessage {...messages.general} />
-        </p>
-        <ul className={styles.list}>
-          <LeftMenuLink icon="list" label={messages.listPlugins.id} destination="/list-plugins" />
-          <LeftMenuLink
-            icon="shopping-basket"
-            label={messages.installNewPlugin.id}
-            destination="/install-plugin"
-          />
-          {hasSettingsManager && (
-            <LeftMenuLink
-              icon="gear"
-              label={messages.configuration.id}
-              destination="/plugins/settings-manager"
-            />
-          )}
-        </ul>
-      </div>
-    </div>
+    <Wrapper>
+      {Object.keys(menu).map(current => (
+        <LeftMenuLinkSection
+          key={current}
+          links={menu[current].links}
+          section={current}
+          location={location}
+          searchable={menu[current].searchable}
+          emptyLinksListMessage={menu[current].emptyLinksListMessage}
+        />
+      ))}
+    </Wrapper>
   );
-}
-
-LeftMenuLinkContainer.defaultProps = {
-  layout: {},
 };
 
 LeftMenuLinkContainer.propTypes = {
-  layout: PropTypes.object,
   plugins: PropTypes.object.isRequired,
 };
 

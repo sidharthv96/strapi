@@ -1,15 +1,7 @@
-import { LOCATION_CHANGE } from 'react-router-redux';
-import {
-  all,
-  call,
-  cancel,
-  fork,
-  put,
-  select,
-  take,
-  takeLatest,
-} from 'redux-saga/effects';
-import request from 'utils/request';
+import { all, call, fork, put, select, takeLatest } from 'redux-saga/effects';
+import { request } from 'strapi-helper-plugin';
+import pluginId from '../../pluginId';
+import getTrad from '../../utils/getTrad';
 import {
   getPermissionsSucceeded,
   getPoliciesSucceeded,
@@ -33,17 +25,19 @@ import {
 
 export function* fetchUser(action) {
   try {
-    const data = yield call(request, `/users-permissions/search/${action.user}`, { method: 'GET' });
+    const data = yield call(request, `/${pluginId}/search/${action.user}`, {
+      method: 'GET',
+    });
 
     yield put(getUserSucceeded(data));
-  } catch(error) {
-    strapi.notification.error('users-permissions.notification.error.fetchUser');
+  } catch (error) {
+    strapi.notification.error(getTrad('notification.error.fetchUser'));
   }
 }
 
 export function* permissionsGet() {
   try {
-    const response = yield call(request, '/users-permissions/permissions', {
+    const response = yield call(request, `/${pluginId}/permissions`, {
       method: 'GET',
       params: {
         lang: strapi.currentLanguage,
@@ -51,28 +45,30 @@ export function* permissionsGet() {
     });
 
     yield put(getPermissionsSucceeded(response));
-  } catch(err) {
-    strapi.notification.error('users-permissions.EditPage.notification.permissions.error');
+  } catch (err) {
+    strapi.notification.error(
+      getTrad('EditPage.notification.permissions.error')
+    );
   }
 }
 
 export function* policiesGet() {
   try {
     const [policies, routes] = yield all([
-      call(request, '/users-permissions/policies', { method: 'GET' }),
-      call(request, '/users-permissions/routes', { method: 'GET' }),
+      call(request, `/${pluginId}/policies`, { method: 'GET' }),
+      call(request, `/${pluginId}/routes`, { method: 'GET' }),
     ]);
-    
+
     yield put(getPoliciesSucceeded(policies));
     yield put(getRoutesSucceeded(routes));
-  } catch(err) {
-    strapi.notification.error('users-permissions.EditPage.notification.policies.error');
+  } catch (err) {
+    strapi.notification.error(getTrad('EditPage.notification.policies.error'));
   }
 }
 
 export function* roleGet(action) {
   try {
-    const role = yield call(request, `/users-permissions/roles/${action.id}`, {
+    const role = yield call(request, `/${pluginId}/roles/${action.id}`, {
       method: 'GET',
       params: {
         lang: strapi.currentLanguage,
@@ -80,12 +76,12 @@ export function* roleGet(action) {
     });
 
     yield put(getRoleSucceeded(role));
-  } catch(err) {
-    strapi.notification.error('users-permissions.EditPage.notification.role.error');
+  } catch (err) {
+    strapi.notification.error(getTrad('EditPage.notification.role.error'));
   }
 }
 
-export function* submit() {
+export function* submit(action) {
   try {
     const actionType = yield select(makeSelectActionType());
     const body = yield select(makeSelectModifiedData());
@@ -95,28 +91,35 @@ export function* submit() {
       body,
     };
 
-    const requestURL = actionType === 'POST' ? '/users-permissions/roles' : `/users-permissions/roles/${roleId}`;
+    const requestURL =
+      actionType === 'POST'
+        ? `/${pluginId}/roles`
+        : `/${pluginId}/roles/${roleId}`;
     const response = yield call(request, requestURL, opts);
+
+    if (actionType === 'POST') {
+      action.context.emitEvent('didCreateRole');
+    }
 
     if (response.ok) {
       yield put(submitSucceeded());
     }
-  } catch(error) {
+  } catch (error) {
     console.log(error); // eslint-disable-line no-console
   }
 }
 
 export default function* defaultSaga() {
-  const loadPermissionsWatcher = yield fork(takeLatest, GET_PERMISSIONS, permissionsGet);
-  const loadPoliciesWatcher = yield fork(takeLatest, GET_POLICIES, policiesGet);
-  const loadRoleWatcher = yield fork(takeLatest, GET_ROLE, roleGet);
+  yield fork(takeLatest, GET_PERMISSIONS, permissionsGet);
+  yield fork(takeLatest, GET_POLICIES, policiesGet);
+  yield fork(takeLatest, GET_ROLE, roleGet);
 
   yield fork(takeLatest, GET_USER, fetchUser);
   yield fork(takeLatest, SUBMIT, submit);
 
-  yield take(LOCATION_CHANGE);
+  // yield take(LOCATION_CHANGE);
 
-  yield cancel(loadPermissionsWatcher);
-  yield cancel(loadPoliciesWatcher);
-  yield cancel(loadRoleWatcher);
+  // yield cancel(loadPermissionsWatcher);
+  // yield cancel(loadPoliciesWatcher);
+  // yield cancel(loadRoleWatcher);
 }
